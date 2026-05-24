@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { MetricsData, QualityLevel } from './types'
 
-  // $props() replaces export let
   let { metrics } = $props<{ metrics: MetricsData }>()
 
-  // $derived() replaces $: for computed values
+  // these recalculate automatically when metrics changes
   const psnrLabel = $derived(getPsnrLabel(metrics.psnr))
   const ssimLabel = $derived(getSsimLabel(metrics.ssim))
+
   const psnrColor = $derived(
     metrics.psnr > 40 ? 'text-green-400' :
     metrics.psnr > 30 ? 'text-yellow-400' : 'text-red-400'
@@ -16,7 +16,6 @@
     metrics.ssim > 0.7 ? 'text-yellow-400' : 'text-red-400'
   )
 
-  // Functions must be defined BEFORE $derived() uses them
   function getPsnrLabel(val: number): QualityLevel {
     if (val === 0) return 'Processing...'
     if (val > 40) return 'Excellent'
@@ -33,28 +32,41 @@
 </script>
 
 <div class="bg-[#0a1628] border border-slate-800 rounded-xl p-5">
+
   <h3 class="text-slate-400 text-sm font-medium mb-4">Quality Metrics</h3>
 
   <div class="grid grid-cols-2 gap-4">
 
-    <!-- PSNR card -->
+
+    <!-- PSNR CARD -->
     <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-800">
+    
+
       <div class="flex items-start justify-between mb-1">
         <span class="text-slate-500 text-xs uppercase tracking-widest">PSNR</span>
+        
+
+        <!-- color class is dynamic — green/yellow/red based on value -->
         <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 {psnrColor}">
           {psnrLabel}
         </span>
       </div>
+
       <p class="text-2xl font-bold {psnrColor}">
+   
         {metrics.psnr > 0 ? metrics.psnr.toFixed(1) : '—'}
+        <!-- toFixed(1) = show 1 decimal: 32.4891 → "32.5" -->
+        <!-- '—' shows when metrics haven't loaded yet (psnr is 0) -->
         <span class="text-sm font-normal text-slate-500">dB</span>
       </p>
+
       <p class="text-slate-600 text-xs mt-2">
         Peak Signal-to-Noise Ratio · &gt;30 dB is acceptable
+        
       </p>
     </div>
 
-    <!-- SSIM card -->
+    <!-- SSIM CARD — same structure as PSNR -->
     <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-800">
       <div class="flex items-start justify-between mb-1">
         <span class="text-slate-500 text-xs uppercase tracking-widest">SSIM</span>
@@ -64,6 +76,7 @@
       </div>
       <p class="text-2xl font-bold {ssimColor}">
         {metrics.ssim > 0 ? metrics.ssim.toFixed(3) : '—'}
+        <!-- toFixed(3) = 3 decimals: 0.91234 → "0.912" -->
       </p>
       <p class="text-slate-600 text-xs mt-2">
         Structural Similarity · &gt;0.9 is high quality
@@ -72,7 +85,7 @@
 
   </div>
 
-  <!-- Interpretation guide -->
+  <!-- GUIDE BAR at bottom -->
   <div class="mt-4 pt-4 border-t border-slate-800 grid grid-cols-3 gap-2 text-xs text-center">
     <div>
       <span class="text-green-400 font-medium">Excellent</span>
@@ -87,4 +100,5 @@
       <p class="text-slate-600 mt-0.5">PSNR &lt;30 · SSIM &lt;0.7</p>
     </div>
   </div>
+
 </div>
