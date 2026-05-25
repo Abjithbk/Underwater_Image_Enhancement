@@ -1,71 +1,60 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException
-from fastapi.responses import StreamingResponse
-from io import BytesIO
-from utils.image_utils import decode_image, encode_image_to_bytes
-from services.pipeline import enhance_pipeline
+from fastapi import APIRouter , UploadFile,File,HTTPException
+from fastapi.responses import JSONResponse
+import io,base64
+from PIL import Image
+from services.preprocessor import preprocess_image
+from services.model_runner import ModelRunner
+from services.matrics import compute_metrics
 
 router = APIRouter()
 
+model_runner = ModelRunner()
 
 @router.post("/enhance")
-async def enhance_image(file: UploadFile = File(...)):
-    """
-    Upload an underwater image and receive an enhanced version.
-    
-    - Accepts: JPEG, PNG image files
-    - Returns: Enhanced image as JPEG
-    """
-    # Validate file type
-    if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
+async def enhance_image(file:UploadFile = File(...)):
+
+    if not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=400,
-            detail="Invalid file type. Please upload a JPEG or PNG image."
+            detail="File must be an image in JPG,PNG,WEBP,etc..."
         )
-
-    # Read the uploaded file bytes
-    file_bytes = await file.read()
-
-    # Decode bytes → OpenCV image (numpy array)
+    
     try:
-        image = decode_image(file_bytes)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+         # Step 1 — read raw bytes from uploaded file
+        contents = await file.read()
+          # Step 2 — bytes → PIL Image
+        # io.BytesIO wraps bytes as a file-like object
+        # so PIL can open it without saving to disk
 
-    # Run the enhancement pipeline
-    enhanced_image = enhance_pipeline(image)
+        original = Image.open(io.BytesIO(contents)).convert("RGB")
+        # Step 3 — resize to 256x256 for model input
 
-    # Encode enhanced image back to bytes
-    result_bytes = encode_image_to_bytes(enhanced_image, format="JPEG")
+        preprocessed = preprocess_image(original)
+        # Step 4 — run through U-Net
 
-    # Return as streaming image response
-    return StreamingResponse(
-        BytesIO(result_bytes),
-        media_type="image/jpeg",
-        headers={"Content-Disposition": "inline; filename=enhanced.jpg"}
-    )
+        enhanced = model_runner.enhance(preprocessed)
 
+         # Step 5 — resize enhanced image back to original size
 
-@router.get("/enhance/info")
-def enhancement_info():
-    """Returns info about the enhancement pipeline being used."""
-    return {
-        "pipeline": "Classical Image Processing",
-        "steps": [
-            {
-                "step": 1,
-                "name": "White Balance",
-                "description": "Corrects blue-green color cast by boosting the red channel"
-            },
-            {
-                "step": 2,
-                "name": "CLAHE",
-                "description": "Adaptive contrast enhancement applied to the lightness channel"
-            },
-            {
-                "step": 3,
-                "name": "Unsharp Masking",
-                "description": "Sharpens edges to recover detail lost due to light scattering"
-            }
-        ],
-        "phase": "Phase 1 - Classical Processing"
-    }
+        enhanced = enhanced.resize(original.size,Image.LANCZOS)
+
+         # Step 6 — compute quality scores
+
+        psnr_val,ssim_val = compute_metrics(original,enhanced)
+
+        # Step 7 — convert enhanced PIL image → base64 string
+        # base64 = text-safe encoding that can travel inside JSON
+
+        buffer = io.BytesIO()
+        enhanced.save(buffer,format="PNG")
+        encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        return JSONResponse({
+            "enhanced_image" : f"data:image/png;base64,{encoded}",
+            "psnr":round(psnr_val,2),
+            "ssim":round(ssim_val,4)
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+    
+
