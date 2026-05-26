@@ -7,82 +7,65 @@ import os
 from models.unet import UNet
 
 class ModelRunner:
-    """
-    Wraps the U-Net model for inference.
-    Created once when FastAPI starts.
-    """
-     
-    def __init__(self,model_path:str = None):
+
+    def __init__(self, model_path: str = None):
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
-
         print(f"Using device: {self.device}")
 
-        self.model = UNet(in_channels=3,out_channels=3).to(self.device)
+        self.model = UNet(in_channels=3, out_channels=3).to(self.device)
 
         if model_path and os.path.exists(model_path):
             self.model.load_state_dict(
-                torch.load(model_path,map_location = self.device)
+                torch.load(model_path, map_location=self.device)
             )
-
             print(f"Loaded weights from {model_path}")
-
         else:
-             # No weights yet — uses random weights
-            # Pipeline still works, quality will be poor
-            # Day 3 training fixes this
             print("No weights found — using untrained model")
-        
+
         self.model.eval()
 
-        # Preprocessing pipeline: PIL → normalized tensor
+        # Only ToTensor and Normalize — nothing else
+        self.to_tensor = T.Compose([
+            T.Resize((256, 256)),     # ensure correct size
+            T.ToTensor(),             # PIL → tensor [0,1] shape (3,H,W)
+            T.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
+        ])
 
-        self.to_tensor = T.Compose(
-            [
-                T.to_tensor(),
-                T.Normalize(
-                    mean = [0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225] 
-                )
-            ]
-        )
-    
-    def enhance(self,image:Image.Image) -> Image.Image:
-        """
-        Runs one image through the U-Net.
-        Input:  PIL Image (256x256)
-        Output: PIL Image (256x256) enhanced
-        """
+    def enhance(self, image: Image.Image) -> Image.Image:
+        # Make sure image is RGB — exactly 3 channels
+        if image.mode != "RGB":
+            image = image.convert("RGB")
 
-        # PIL → tensor, add batch dimension
-        # (3,256,256) → (1,3,256,256)
-        # model always expects a batch dimension
+        # PIL → tensor → add batch dim
+        # shape: (3,256,256) → (1,3,256,256)
         tensor = self.to_tensor(image).unsqueeze(0).to(self.device)
 
-        # no_grad = don't track gradients
-        # we are inferencing not training
-        # saves memory and runs faster
+        print(f"Input tensor shape: {tensor.shape}")
+        # should print: torch.Size([1, 3, 256, 256])
+
         with torch.no_grad():
             output = self.model(tensor)
 
-        # Remove batch dimension: (1,3,256,256) → (3,256,256)
+        print(f"Output tensor shape: {output.shape}")
+
+        # Remove batch dim: (1,3,256,256) → (3,256,256)
         output = output.squeeze(0).cpu().numpy()
 
-        # Reverse the normalization we applied before
-        mean = np.array([0.485, 0.456, 0.406])
-        std  = np.array([0.229, 0.224, 0.225])
-
-        # (3,H,W) → (H,W,3) because PIL expects channels last
+        # (3,H,W) → (H,W,3)
         output = np.transpose(output, (1, 2, 0))
 
-        # pixel = (normalized_value * std) + mean
+        # Denormalize
+        mean = np.array([0.485, 0.456, 0.406])
+        std  = np.array([0.229, 0.224, 0.225])
         output = (output * std) + mean
 
-        # Clip to valid range, convert to 0-255 integers
+        # Clip and convert to uint8
         output = np.clip(output, 0, 1)
         output = (output * 255).astype(np.uint8)
 
         return Image.fromarray(output)
-         
-     
