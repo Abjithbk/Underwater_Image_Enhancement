@@ -1,18 +1,17 @@
 from PIL import Image
 
-MODEL_INPUT_SIZE = (256,256)
+# Same size as training
+MODEL_INPUT_SIZE = (256, 256)
 
-def preprocess_image(image : Image.Image) -> Image.Image:
-
+def preprocess_image(image: Image.Image) -> Image.Image:
     """
-    prepare image for U - NET  Architecture
-    Not in rgba its in RGB
+    Prepares image for UnderwaterNet.
+    NO normalization — matches training exactly!
     """
     if image.mode != "RGB":
         image = image.convert("RGB")
 
-    resized = image.resize(MODEL_INPUT_SIZE,Image.LANCZOS)
+    # Resize to model input size
+    resized = image.resize(MODEL_INPUT_SIZE, Image.LANCZOS)
 
     return resized
-
-

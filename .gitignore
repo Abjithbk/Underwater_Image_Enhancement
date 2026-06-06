@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# Model weights
+*.pth
+*.pt
+backend/weights/
+
+# Node
+node_modules/
+.svelte-kit/
+build/
+
+# Dataset
+*.zip
+UIEB/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
