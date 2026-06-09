@@ -24,7 +24,7 @@
 
   <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
     <slot />
-    <!-- SvelteKit puts +page.svelte content here -->
+    <!-- SvelteKit puts +page.svelte content here.. -->
   </main>
 
   <footer class="border-t border-slate-800 py-4 text-center text-slate-600 text-xs">

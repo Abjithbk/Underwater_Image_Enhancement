@@ -72,7 +72,7 @@ class ModelRunner:
             )
             print(f"Loaded weights from {model_path}")
         else:
-            print("⚠️ No weights found — using untrained model")
+            print("No weights found — using untrained model")
 
         self.model.eval()
 
