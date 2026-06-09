@@ -70,7 +70,7 @@ class ModelRunner:
             self.model.load_state_dict(
                 torch.load(model_path, map_location=self.device)
             )
-            print(f"✅ Loaded weights from {model_path}")
+            print(f"Loaded weights from {model_path}")
         else:
             print("⚠️ No weights found — using untrained model")
 
