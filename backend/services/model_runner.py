@@ -102,7 +102,7 @@ class ModelRunner:
         # CHW → HWC
         output = np.transpose(output, (1, 2, 0))
 
-        # NO denormalization needed!
+        # NO denormalization needed
         # Just clip and convert
         output = np.clip(output, 0, 1)
         output = (output * 255).astype(np.uint8)
